@@ -686,3 +686,893 @@ ERROR: Database query timeout
 Together, these signals give you **observability**.
 
 And in Dynatrace, the real power comes from **correlating these signals with the application's topology and dependencies**, rather than looking at each data type in isolation.
+Yes. These are exactly the kinds of topics you should have in your **Dynatrace L2/Production Support notes**. One important point: the Dynatrace UI changes between **Classic and current/latest Dynatrace**, so I’ll give you the concept plus the current workflow and note where older menu names may differ.
+
+# Dynatrace Operations Notes
+
+## 1. OneAgent Installation
+
+### What is OneAgent?
+
+**Dynatrace OneAgent** is the software agent installed on a monitored host. It collects telemetry from the host, processes, applications, services, and supported technologies and sends that information to Dynatrace.
+
+Think:
+
+```text
+Server
+   │
+   └── Dynatrace OneAgent
+            │
+            ├── Host metrics
+            ├── Process information
+            ├── Application data
+            ├── Service data
+            └── Distributed tracing
+                    │
+                    ↓
+              Dynatrace
+```
+
+Dynatrace currently provides OneAgent installation for platforms including **Windows, Linux and AIX**. ([Dynatrace Documentation][1])
+
+---
+
+# 2. OneAgent Installation — Windows Example
+
+Typical workflow:
+
+```text
+Dynatrace
+   ↓
+Discovery & Coverage
+   ↓
+Install
+   ↓
+Install OneAgent
+   ↓
+Select Windows
+   ↓
+Select Monitoring Mode
+   ↓
+Download Installer
+   ↓
+Install on Server
+   ↓
+Check Deployment Status
+   ↓
+Restart monitored applications/processes
+   ↓
+Host appears in Dynatrace
+```
+
+The current Dynatrace documentation uses:
+
+**Discovery & Coverage → Install → Install OneAgent**
+
+and lets you choose the monitoring mode during installation. ([Dynatrace Documentation][2])
+
+### Important prerequisite
+
+The server must be able to communicate with the Dynatrace environment, and you generally need administrator privileges to install OneAgent. ([Dynatrace Documentation][1])
+
+---
+
+# 3. Monitoring Modes
+
+You mentioned:
+
+> Monitoring → Full Stack, Infra, Discovery
+
+Correct. These are important.
+
+### Full-Stack Monitoring
+
+Provides the deepest level of application and infrastructure visibility.
+
+Think:
+
+```text
+Host
+ ↓
+Processes
+ ↓
+Services
+ ↓
+Applications
+ ↓
+Requests
+ ↓
+Distributed traces
+```
+
+Use this when you need **application + infrastructure observability**.
+
+---
+
+### Infrastructure Monitoring
+
+Focuses primarily on infrastructure/host-level visibility.
+
+For example:
+
+```text
+CPU
+Memory
+Disk
+Network
+Host health
+Processes
+```
+
+It is useful when you don't need the full application-level instrumentation.
+
+---
+
+### Discovery
+
+Provides a lighter discovery-oriented view of your environment.
+
+A simple way to remember:
+
+```text
+Full-Stack       → Deep application + infrastructure
+Infrastructure   → Infrastructure focused
+Discovery        → Discover what exists
+```
+
+Dynatrace supports these three OneAgent monitoring modes, and the mode can be changed after installation. ([Dynatrace Documentation][3])
+
+---
+
+# 4. OneAgent installed but not showing in Deployment Status
+
+This is a **very realistic L2 troubleshooting scenario**.
+
+First understand the distinction:
+
+```text
+Installer executed
+       ↓
+OneAgent installed
+       ↓
+OneAgent service running
+       ↓
+OneAgent communicates with Dynatrace
+       ↓
+Host appears in Dynatrace
+```
+
+If it isn't appearing, don't immediately assume the installation failed.
+
+### Troubleshooting checklist
+
+**1. Check OneAgent service**
+
+On Windows:
+
+```text
+Services
+   ↓
+Dynatrace OneAgent
+   ↓
+Running?
+```
+
+You can also restart it.
+
+Dynatrace documents the Windows service as **Dynatrace OneAgent**. ([Dynatrace Documentation][4])
+
+**2. Check network connectivity**
+
+Verify that the server can communicate with the Dynatrace environment/ActiveGate according to your architecture.
+
+**3. Check installation logs**
+
+Look for installation/OneAgent errors.
+
+**4. Check proxy/firewall**
+
+A proxy or firewall can prevent the agent from communicating with Dynatrace.
+
+**5. Restart OneAgent**
+
+For Windows, the service can be restarted from Services or command line.
+
+```cmd
+net stop "Dynatrace OneAgent"
+net start "Dynatrace OneAgent"
+```
+
+Dynatrace also supports `oneagentctl` for configuration and restart operations. ([Dynatrace Documentation][4])
+
+**6. Check Deployment Status again**
+
+Then verify:
+
+```text
+Infrastructure & Operations
+        ↓
+Hosts
+        ↓
+Search hostname
+```
+
+---
+
+# 5. Why do we restart application processes after OneAgent installation?
+
+This is **very important**.
+
+Installing OneAgent doesn't automatically mean every already-running application process is immediately instrumented.
+
+Dynatrace states that processes running during installation need to be restarted for OneAgent monitoring/injection to take effect. ([Dynatrace Documentation][1])
+
+Example:
+
+```text
+10:00 → OneAgent installed
+10:01 → Java application already running
+10:02 → OneAgent is installed but Java process wasn't restarted
+```
+
+You may see host-level information such as:
+
+```text
+CPU
+Memory
+Disk
+```
+
+but application-level visibility can be limited.
+
+After:
+
+```text
+Restart Java application
+```
+
+Dynatrace can instrument the process and provide deeper visibility.
+
+---
+
+# 6. Finding Hosts in Dynatrace
+
+You mentioned the older:
+
+> Search → Host
+
+and newer:
+
+> Infrastructure & Operations → Show all hosts
+
+The exact navigation depends on the Dynatrace version/UI.
+
+The important concept is:
+
+```text
+Infrastructure & Operations
+        ↓
+Hosts
+        ↓
+Search / Filter
+        ↓
+Host
+```
+
+Dynatrace's current documentation uses **Infrastructure & Operations → Hosts** to confirm a newly connected OneAgent host. ([Dynatrace Documentation][1])
+
+---
+
+# 7. Renaming a Host
+
+There are two concepts you should distinguish:
+
+### Actual OS hostname
+
+This is the hostname configured in Windows/Linux.
+
+### Dynatrace custom host name
+
+Dynatrace allows you to override the name displayed in Dynatrace.
+
+For example:
+
+```text
+Actual hostname:
+WINPROD123
+
+Dynatrace display name:
+TAX-PROD-WEB-01
+```
+
+Using OneAgent CLI:
+
+### Windows
+
+```cmd
+.\oneagentctl.exe --set-host-name=TAX-PROD-WEB-01
+```
+
+### Linux
+
+```bash
+./oneagentctl --set-host-name=TAX-PROD-WEB-01
+```
+
+Dynatrace notes that this changes the name displayed in Dynatrace; it does **not** change the actual OS hostname. A OneAgent restart is required for the change to take effect. ([Dynatrace Documentation][5])
+
+---
+
+# 8. Dynatrace Tagging
+
+Tags are extremely important in enterprise environments.
+
+They allow you to organize and filter:
+
+```text
+Hosts
+Process Groups
+Services
+Applications
+```
+
+For example:
+
+```text
+Environment:Production
+Application:Tax
+Team:Tax-Platform
+Criticality:High
+Region:India
+```
+
+Then you can use these tags for:
+
+* Searching
+* Filtering
+* Dashboards
+* Alerting
+* Maintenance windows
+* Management zones
+* Operational organization
+
+Dynatrace supports both **manual and automatic tagging**. ([Dynatrace Documentation][6])
+
+---
+
+# 9. Manual vs Automatic Tagging
+
+## Manual Tagging
+
+You select an entity and manually assign a tag.
+
+Example:
+
+```text
+Host: TAX-PROD-01
+
+Tags:
+Environment:Production
+Application:Tax
+```
+
+Good for:
+
+> Small/static environments.
+
+---
+
+## Automatic Tagging
+
+Instead of manually tagging every host, you create a **rule**.
+
+Example:
+
+```text
+IF
+
+Host name contains "PROD"
+
+THEN
+
+Add tag:
+Environment:Production
+```
+
+Another example:
+
+```text
+IF
+
+Host property:
+Environment = Production
+
+THEN
+
+Tag:
+Environment:Production
+```
+
+This is much better for large dynamic environments.
+
+Dynatrace specifically recommends automatic/rule-based tagging where environments are large or dynamic. ([Dynatrace Documentation][6])
+
+---
+
+# 10. How to Set Up Automatic Tagging
+
+Current Dynatrace workflow:
+
+```text
+Settings
+   ↓
+Tags
+   ↓
+Automatically applied tags
+   ↓
+Create tag
+   ↓
+Enter Tag Name
+   ↓
+Add new rule
+   ↓
+Define condition
+   ↓
+Save
+```
+
+Example:
+
+```text
+Tag Name:
+Environment
+
+Rule:
+
+Host name
+contains
+PROD
+
+Value:
+Production
+```
+
+Result:
+
+```text
+TAX-PROD-01 → Environment:Production
+TAX-PROD-02 → Environment:Production
+TAX-PROD-03 → Environment:Production
+```
+
+New matching entities receive the tag automatically. ([Dynatrace Documentation][6])
+
+---
+
+# 11. Process Group Monitoring
+
+This is another **very important Dynatrace concept**.
+
+A server can have many processes:
+
+```text
+Windows Server
+│
+├── Java
+├── IIS
+├── SQL Server
+├── PowerShell
+├── Windows Services
+└── Other processes
+```
+
+Dynatrace groups related process instances into **Process Groups**.
+
+Example:
+
+```text
+Process Group
+    │
+    ├── Java Instance 1
+    ├── Java Instance 2
+    └── Java Instance 3
+```
+
+This allows Dynatrace to analyze applications at the process/service level.
+
+OneAgent automatically monitors detected process groups, particularly known technologies or significant processes. ([Dynatrace Documentation][7])
+
+---
+
+# 12. Why Process Group Monitoring matters
+
+Imagine:
+
+```text
+Host: TAX-PROD-01
+
+Process Groups:
+
+Tax-Web
+Tax-API
+Tax-Database
+```
+
+If:
+
+```text
+Tax-API
+   ↓
+Response time ↑
+   ↓
+Error rate ↑
+```
+
+you can investigate the process group and its dependencies rather than just looking at the server's overall CPU.
+
+---
+
+# 13. Process Availability
+
+This answers:
+
+> **"Is an important process actually running?"**
+
+Example:
+
+You have a critical Windows service:
+
+```text
+TaxApplicationService
+```
+
+You expect:
+
+```text
+TaxApplicationService = Running
+```
+
+If the process disappears/stops:
+
+```text
+Process unavailable
+       ↓
+Dynatrace alert
+       ↓
+Support team
+       ↓
+Incident
+```
+
+Dynatrace allows you to create process-availability monitoring rules. If no matching process exists, an alerting event can be generated. ([Dynatrace Documentation][8])
+
+### Example rule
+
+```text
+Rule:
+TaxApplicationService
+
+Minimum matching processes:
+1
+```
+
+If:
+
+```text
+Running processes = 1
+```
+
+→ OK
+
+If:
+
+```text
+Running processes = 0
+```
+
+→ Alert
+
+---
+
+# 14. Process Group Availability
+
+There is another useful scenario.
+
+Suppose you have:
+
+```text
+Tax API
+
+Instance 1
+Instance 2
+Instance 3
+```
+
+You might configure:
+
+> Alert if fewer than **2 instances** are available.
+
+So:
+
+```text
+3 → OK
+2 → OK
+1 → ALERT
+0 → ALERT
+```
+
+Dynatrace supports availability alerting based either on a process becoming unavailable or the number of available processes falling below a configured threshold. ([Dynatrace Documentation][9])
+
+---
+
+# 15. Maintenance Windows
+
+This is extremely important for production support.
+
+Suppose the application team tells you:
+
+> "We are deploying a new release from 1 AM to 3 AM."
+
+During this period you may expect:
+
+```text
+Application restart
+High CPU
+High response time
+Temporary errors
+Services unavailable
+```
+
+You don't want normal maintenance activity generating unnecessary incidents/alerts.
+
+Therefore:
+
+> **Maintenance Window = predefined period during which planned maintenance is taking place.**
+
+---
+
+## Creating a Maintenance Window
+
+Current Dynatrace UI:
+
+```text
+Settings
+   ↓
+Maintenance windows
+   ↓
+Monitoring, alerting, and availability
+   ↓
+Create maintenance window
+```
+
+You define:
+
+```text
+Name
+Description
+Planned / Unplanned
+Start time
+End time
+Recurrence
+Timezone
+Scope
+```
+
+Dynatrace lets you choose what happens to problem detection during the window:
+
+### Option 1 — Detect + Alert
+
+Normal detection and alerting continue.
+
+### Option 2 — Detect but don't Alert
+
+Dynatrace detects the problem but suppresses notifications.
+
+### Option 3 — Disable Problem Detection
+
+Problems aren't detected during the maintenance window.
+
+([Dynatrace Documentation][10])
+
+---
+
+# 16. Why Tags + Maintenance Windows are powerful
+
+Suppose you have:
+
+```text
+100 Production servers
+```
+
+and your tax application servers have:
+
+```text
+Application:Tax
+Environment:Production
+```
+
+You can create a maintenance window scoped to:
+
+```text
+Tag:
+Application:Tax
+
+AND
+
+Environment:Production
+```
+
+Then you don't have to manually select 100 servers.
+
+This is one reason **good tagging strategy is important in enterprise Dynatrace administration**. Maintenance windows can be scoped using entity tags and management zones. ([Dynatrace Documentation][10])
+
+---
+
+# 17. Metric Event / New Alert
+
+A **metric event** is essentially a rule that monitors a metric and generates an alert when a defined condition is met.
+
+Example:
+
+```text
+Metric:
+CPU utilization
+
+Condition:
+> 90%
+
+Duration:
+5 minutes
+
+Action:
+Generate alert
+```
+
+Conceptually:
+
+```text
+CPU
+ ↓
+85%
+ ↓
+91%
+ ↓
+94%
+ ↓
+92%
+ ↓
+Threshold breached
+ ↓
+Metric Event
+ ↓
+Problem / Alert
+```
+
+Dynatrace's metric key events use incoming measurements of a metric and can evaluate them against static thresholds. ([Dynatrace Documentation][11])
+
+---
+
+# 18. Example: Create CPU Alert
+
+Suppose you want:
+
+> Alert when CPU utilization exceeds 90%.
+
+Conceptually configure:
+
+```text
+Metric:
+CPU utilization
+
+Aggregation:
+Average
+
+Threshold:
+90%
+
+Condition:
+Above threshold
+
+Scope:
+Production hosts
+```
+
+Then:
+
+```text
+CPU = 75% → No alert
+
+CPU = 85% → No alert
+
+CPU = 92% → Alert
+```
+
+In an enterprise environment, you would normally **scope the alert carefully** rather than applying every alert to every entity.
+
+---
+
+# 19. Important distinction: Alert vs Problem vs Event
+
+This is worth putting in your notes.
+
+```text
+Metric
+  ↓
+Threshold/Anomaly detected
+  ↓
+Event
+  ↓
+Dynatrace correlation
+  ↓
+Problem
+  ↓
+Notification/Alert
+```
+
+A useful operational mental model is:
+
+**Event** = something happened.
+
+**Problem** = Dynatrace correlates one or more events into a broader issue.
+
+**Alert/notification** = something that gets communicated to the responsible team according to configured alerting.
+
+---
+
+# Your Dynatrace L2 Cheat Sheet
+
+```text
+ONEAGENT
+   ↓
+Installed on Host
+   ↓
+Monitoring Mode
+   ├── Full-Stack
+   ├── Infrastructure
+   └── Discovery
+   ↓
+Host appears in Dynatrace
+   ↓
+Processes detected
+   ↓
+Process Groups
+   ↓
+Services / Applications
+   ↓
+Metrics + Logs + Traces + Events
+   ↓
+Problems / Alerts
+```
+
+### Operational commands/concepts to remember
+
+| Topic                    | Remember                                      |
+| ------------------------ | --------------------------------------------- |
+| **OneAgent**             | Agent installed on monitored host             |
+| **Full-Stack**           | Deep application + infrastructure monitoring  |
+| **Infrastructure**       | Infrastructure-focused monitoring             |
+| **Discovery**            | Lightweight environment discovery             |
+| **Deployment Status**    | Check OneAgent connection/deployment          |
+| **Host**                 | Physical/VM/cloud machine being monitored     |
+| **Process Group**        | Logical grouping of related process instances |
+| **Process Availability** | Is a required process running?                |
+| **Manual Tag**           | Human assigns tag                             |
+| **Automatic Tag**        | Rule assigns tag                              |
+| **Maintenance Window**   | Planned period controlling detection/alerting |
+| **Metric Event**         | Metric condition that can generate an event   |
+| **Problem**              | Correlated issue derived from events          |
+
+**One operational correction to your note:** don't make "restart OneAgent if it isn't showing in Deployment Status" the only troubleshooting step. A better L2 sequence is **service status → connectivity/proxy/firewall → OneAgent logs → OneAgent restart → Deployment Status → Hosts**, because a restart won't fix a network or configuration problem. Dynatrace's installation/troubleshooting guidance also emphasizes connectivity and process restart requirements. ([Dynatrace Documentation][12])
+
+[1]: https://docs.dynatrace.com/docs/ingest-from/dynatrace-oneagent/installation-and-operation?utm_source=chatgpt.com "Install OneAgent on a server — Dynatrace Docs"
+[2]: https://docs.dynatrace.com/docs/ingest-from/dynatrace-oneagent/installation-and-operation/windows/installation/install-oneagent-on-windows?trk=article-ssr-frontend-pulse_little-text-block&utm_source=chatgpt.com "Install OneAgent on Windows — Dynatrace Docs"
+[3]: https://docs.dynatrace.com/docs/ingest-from/dynatrace-oneagent/installation-and-operation/windows/installation/customize-oneagent-installation-on-windows?utm_source=chatgpt.com "Customize OneAgent installation on Windows — Dynatrace Docs"
+[4]: https://docs.dynatrace.com/docs/ingest-from/dynatrace-oneagent/installation-and-operation/windows/operation/stop-restart-oneagent-on-windows?utm_source=chatgpt.com "Stop/restart OneAgent on Windows — Dynatrace Docs"
+[5]: https://docs.dynatrace.com/docs/ingest-from/dynatrace-oneagent/oneagent-configuration-via-command-line-interface?utm_source=chatgpt.com "OneAgent configuration via command-line interface — Dynatrace Docs"
+[6]: https://docs.dynatrace.com/docs/manage/tags-and-metadata/setup/how-to-define-tags?utm_source=chatgpt.com "Define and apply tags — Dynatrace Docs"
+[7]: https://docs.dynatrace.com/docs/observe/infrastructure-observability/process-groups/configuration/pg-monitoring?utm_source=chatgpt.com "Process deep monitoring — Dynatrace Docs"
+[8]: https://docs.dynatrace.com/docs/observe/infrastructure-observability/hosts/monitoring/process-availability?utm_source=chatgpt.com "Process availability — Dynatrace Docs"
+[9]: https://docs.dynatrace.com/docs/observe/infrastructure-observability/process-groups/monitoring/process-group-availability-monitoring-and-alerting?utm_source=chatgpt.com "Process group availability monitoring and alerting — Dynatrace Docs"
+[10]: https://docs.dynatrace.com/docs/analyze-explore-automate/notifications-and-alerting/maintenance-windows/define-maintenance-window?utm_source=chatgpt.com "How to define a maintenance window — Dynatrace Docs"
+[11]: https://docs.dynatrace.com/docs/dynatrace-intelligence/anomaly-detection/metric-events/metric-key-events?utm_source=chatgpt.com "Metric key events — Dynatrace Docs"
+[12]: https://docs.dynatrace.com/docs/ingest-from/dynatrace-oneagent/oneagent-troubleshooting/troubleshoot-oneagent-installation?utm_source=chatgpt.com "Troubleshooting OneAgent installation — Dynatrace Docs"
