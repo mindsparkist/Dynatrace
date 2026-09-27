@@ -2705,3 +2705,1503 @@ This gives you a nice troubleshooting hierarchy:
 
 [1]: https://docs.dynatrace.com/docs/observe/digital-experience/synthetic-monitoring/network-availability-monitors/network-availability-monitoring?utm_source=chatgpt.com "Network availability monitoring in Classic — Dynatrace Docs"
 [2]: https://docs.dynatrace.com/docs/observe/digital-experience/synthetic-monitoring/general-information/types-of-synthetic-monitors?utm_source=chatgpt.com "Types of synthetic monitors in Classic — Dynatrace Docs"
+
+Yes. The flow you wrote is essentially about **setting up RUM → identifying your frontend/application → viewing the collected data → querying the data → putting the result on a dashboard**.
+
+One terminology correction first: **“Dynatrace Data Exporter” and “Data Explorer” are different things.** If your step is **Write Query → Pin to Dashboard**, you are most likely referring to **Data Explorer** or, in the newer Dynatrace experience, **DQL/Notebooks**. Data Explorer is specifically designed to query/visualize metrics and pin visualizations to dashboards. ([Dynatrace Documentation][1])
+
+## 1. What is RUM?
+
+**RUM = Real User Monitoring.**
+
+RUM collects information about how **real users interact with your web/mobile application**.
+
+For a web application:
+
+```text
+Real User
+   ↓
+Opens Website
+   ↓
+Login
+   ↓
+Clicks / Navigates
+   ↓
+API Calls
+   ↓
+Backend Services
+   ↓
+Database
+```
+
+Dynatrace can capture information about the user's experience, such as:
+
+* User sessions
+* Page views / views
+* User actions
+* JavaScript errors
+* Request errors
+* Page-load performance
+* Core Web Vitals
+* Browser/device information
+* Geographic information
+* Frontend-to-backend relationships
+
+Dynatrace's current RUM model includes **user events and user sessions**, while Experience Vitals provides frontend-level performance and health information. ([Dynatrace Documentation][2])
+
+---
+
+# 2. Your flow: Application Detection
+
+You wrote:
+
+> RUM → Settings → Applications Detection → Add Item → Add URL → Application and Observability → Frontend → Show Data
+
+The important concept here is **Application/Frontend Detection**.
+
+Dynatrace needs to know:
+
+> **“Which application should this RUM data belong to?”**
+
+For example, suppose your company has:
+
+```text
+https://tax.company.com
+https://hr.company.com
+https://portal.company.com
+```
+
+You don't want all RUM traffic to appear as one generic application.
+
+You can create detection rules so Dynatrace maps traffic to the appropriate frontend/application.
+
+The application detection configuration defines rules for grouping RUM monitoring data into distinct applications. ([Dynatrace Documentation][3])
+
+### Example
+
+You create a rule:
+
+```text
+URL contains:
+tax.company.com
+
+        ↓
+
+Application:
+Tax Portal
+```
+
+Then:
+
+```text
+Real User
+    ↓
+https://tax.company.com/login
+    ↓
+Dynatrace RUM
+    ↓
+Tax Portal frontend
+```
+
+So **Application Detection = telling Dynatrace how to classify the captured RUM traffic.**
+
+---
+
+# 3. Frontend
+
+This is another important term.
+
+In Dynatrace, a **frontend** represents the client-side application users interact with.
+
+For example:
+
+```text
+User
+ ↓
+Browser
+ ↓
+Tax Portal Frontend
+ ↓
+API
+ ↓
+Backend Service
+ ↓
+Database
+```
+
+The frontend is where RUM starts observing the user's experience.
+
+Current Dynatrace uses **Experience Vitals** as a major entry point for frontend monitoring. It provides an overview of monitored frontends and their performance/health information. ([Dynatrace Documentation][4])
+
+---
+
+# 4. "Show Data"
+
+Once RUM is correctly configured and users are generating traffic, Dynatrace starts receiving RUM data.
+
+For example:
+
+```text
+Frontend: Tax Portal
+
+Active Users       1,250
+Sessions            1,480
+Error Rate          2.1%
+Page Load           2.4 sec
+LCP                  2.1 sec
+INP                  180 ms
+```
+
+You can drill into the frontend and investigate:
+
+```text
+Frontend
+   ↓
+Performance
+   ↓
+User Sessions
+   ↓
+User Actions
+   ↓
+Errors
+   ↓
+Backend services
+   ↓
+Distributed traces
+```
+
+Dynatrace also supports frontend-to-backend linking, allowing you to move from a RUM issue into backend traces/services for investigation. ([Dynatrace Documentation][5])
+
+---
+
+# 5. Where does "Trigger now" fit?
+
+If you're referring to **Synthetic Monitoring**, don't mix this with RUM.
+
+### RUM
+
+```text
+Real user generates traffic
+        ↓
+Dynatrace captures it
+```
+
+### Synthetic
+
+```text
+Dynatrace triggers a test
+        ↓
+Synthetic user/test runs
+        ↓
+Result is collected
+```
+
+So if you see a **Trigger now / execute now** type option while working with a Synthetic monitor, the purpose is generally to **run the synthetic test immediately rather than waiting for its normal schedule**.
+
+For example:
+
+```text
+Synthetic Monitor
+Schedule: Every 5 minutes
+
+Normal:
+10:00 → Run
+10:05 → Run
+10:10 → Run
+
+Trigger Now:
+10:02 → Run immediately
+```
+
+This is particularly useful when you're troubleshooting a failed monitor and want to verify whether the problem still occurs.
+
+---
+
+# 6. Data Explorer — "Write Query"
+
+Now we get to the second part of your notes.
+
+Suppose you've collected RUM data and want to answer:
+
+> "How many users are accessing my application?"
+
+or:
+
+> "What's the error rate?"
+
+or:
+
+> "Which pages have the most traffic?"
+
+You need to **query the data**.
+
+That's where tools such as **Data Explorer** and **DQL** come in.
+
+### Data Explorer
+
+Data Explorer lets you select metrics, apply filters, split dimensions, choose visualizations, and create charts. ([Dynatrace Documentation][1])
+
+For example:
+
+```text
+Metric
+ ↓
+User actions
+ ↓
+Filter
+ ↓
+Tax Portal
+ ↓
+Visualization
+ ↓
+Line chart
+```
+
+---
+
+# 7. Example: RUM query
+
+With newer Dynatrace/DQL workflows, you can query RUM user events directly.
+
+For example, conceptually:
+
+```text
+fetch user.events
+| filter frontend.name == "Tax Portal"
+| summarize count()
+```
+
+This asks:
+
+> **How many user events were captured for the Tax Portal frontend?**
+
+Dynatrace documents DQL specifically for analyzing RUM user behavior, including clicks, navigations, sessions, and custom properties. ([Dynatrace Documentation][6])
+
+You can also create queries around:
+
+```text
+Users
+Sessions
+Page views
+Clicks
+Errors
+Navigation
+User actions
+Performance
+```
+
+---
+
+# 8. Pin to Dashboard
+
+Once you've created a useful visualization:
+
+```text
+Query
+  ↓
+Result
+  ↓
+Visualization
+  ↓
+Pin to Dashboard
+```
+
+Now your support/operations dashboard can contain things like:
+
+```text
+┌─────────────────────────────────┐
+│       Production Dashboard      │
+├─────────────────────────────────┤
+│ Active Users        1,250       │
+│ Sessions            1,480       │
+│ Error Rate           2.1%       │
+│ Page Load            2.4 sec    │
+│                                 │
+│ User Traffic ───────────────    │
+│ Error Trend  ───────────────    │
+│ Top Pages    ───────────────    │
+└─────────────────────────────────┘
+```
+
+Data Explorer specifically supports **Pin to dashboard** after you've built the query and visualization. ([Dynatrace Documentation][1])
+
+---
+
+# 9. Your complete learning flow
+
+I would rewrite your notes like this:
+
+```text
+                    RUM
+                     │
+                     ↓
+        Monitor Real User Experience
+                     │
+                     ↓
+           Identify Frontend/App
+                     │
+                     ↓
+          Application Detection
+                     │
+                     ↓
+          URL / Detection Rules
+                     │
+                     ↓
+              Frontend
+                     │
+                     ↓
+             RUM Data Captured
+                     │
+                     ↓
+              Show / Analyze
+                     │
+            ┌────────┴────────┐
+            ↓                 ↓
+       Data Explorer          DQL
+            ↓                 ↓
+       Write Query       Query RUM Data
+            │                 │
+            └────────┬────────┘
+                     ↓
+               Visualization
+                     ↓
+              Pin to Dashboard
+```
+
+### In one sentence:
+
+> **RUM captures real-user activity → Application Detection maps that activity to the correct frontend → you analyze the captured data using Data Explorer/DQL → create visualizations → pin useful views to a dashboard.**
+
+### And don't mix these three concepts:
+
+**RUM** → collects/observes real-user experience.
+
+**Data Explorer / DQL** → analyzes the collected data.
+
+**Dashboard** → presents the important results for continuous monitoring.
+
+That's a very useful distinction for an **L2/Production Support** interview.
+
+[1]: https://docs.dynatrace.com/docs/analyze-explore-automate/explorer?utm_source=chatgpt.com "Data Explorer — Dynatrace Docs"
+[2]: https://docs.dynatrace.com/docs/semantic-dictionary/model/rum?utm_source=chatgpt.com "Real User Monitoring — Dynatrace Docs"
+[3]: https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-app-detection?utm_source=chatgpt.com "Settings API - Application detection schema table — Dynatrace Docs"
+[4]: https://docs.dynatrace.com/docs/observe/digital-experience/rum/experience-vitals?utm_source=chatgpt.com "Experience Vitals — Dynatrace Docs"
+[5]: https://docs.dynatrace.com/docs/observe/digital-experience/rum/analyze-and-alert/analyze-frontend-to-backend?utm_source=chatgpt.com "Analyze performance from frontend to backend — Dynatrace Docs"
+[6]: https://docs.dynatrace.com/docs/observe/digital-experience/rum/analyze-and-alert/rum-dql-user-behavior?utm_source=chatgpt.com "Analyze user behavior with DQL — Dynatrace Docs"
+
+Your notes are covering several **advanced but very useful Dynatrace topics**. The key is to understand how they connect rather than memorizing menu paths.
+
+> **RUM collects user experience → DQL analyzes data → Synthetic/API monitors proactively test systems → Segments organize/filter environments → Tags enrich entities so you can group and operate them.**
+
+---
+
+# 1. Agentless RUM
+
+### What is Agentless RUM?
+
+Normally, Dynatrace can use **OneAgent/browser auto-injection** to instrument an application.
+
+**Agentless RUM** means you manually add the Dynatrace RUM JavaScript snippet to the web application instead of relying on OneAgent to inject it.
+
+```text
+Normal / Auto-injected RUM
+
+Web Server
+    ↓
+OneAgent
+    ↓
+Inject RUM JavaScript
+    ↓
+Browser
+    ↓
+RUM data
+```
+
+Agentless:
+
+```text
+Web Application
+    ↓
+Developer manually adds
+Dynatrace RUM JavaScript
+    ↓
+Browser
+    ↓
+Dynatrace
+```
+
+Dynatrace's current agentless setup provides a JavaScript tag that you copy into the application. The RUM JavaScript then sends RUM beacons containing the captured data. ([Dynatrace Documentation][1])
+
+### Why use Agentless RUM?
+
+Useful when:
+
+* You can't install OneAgent.
+* The application is hosted somewhere you don't control.
+* You want explicit control over the RUM JavaScript.
+* You have a frontend application where browser-side instrumentation is easier than server-side instrumentation.
+
+---
+
+# 2. How to add Agentless RUM
+
+The exact UI wording can change, but the current Dynatrace workflow is essentially:
+
+```text
+RUM / Frontend
+      ↓
+Create / Add web application
+      ↓
+Choose Agentless monitoring
+      ↓
+Configure application
+      ↓
+Configure privacy / interactions
+      ↓
+Copy JavaScript tag
+      ↓
+Add tag to web application
+      ↓
+Deploy application
+      ↓
+Real users generate traffic
+      ↓
+Dynatrace receives RUM data
+```
+
+Current Dynatrace documentation specifically has an **Agentless RUM setup** flow and provides the JavaScript tag to copy. You can also enable user interactions and configure end-user privacy settings during setup. ([Dynatrace Documentation][1])
+
+### Example
+
+Suppose your application is:
+
+```text
+https://tax.company.com
+```
+
+You add the Dynatrace RUM JavaScript to the frontend:
+
+```html
+<script>
+    /* Dynatrace RUM JavaScript */
+</script>
+```
+
+Then:
+
+```text
+User opens tax.company.com
+        ↓
+RUM JavaScript executes
+        ↓
+Page/view/action information captured
+        ↓
+RUM beacon sent
+        ↓
+Dynatrace
+```
+
+---
+
+# 3. What should we monitor with RUM?
+
+Don't think of RUM as simply:
+
+> "Is the website UP?"
+
+That's more Synthetic Monitoring.
+
+RUM answers:
+
+> **"How are actual users experiencing my application?"**
+
+Monitor things such as:
+
+### User experience
+
+* Page/view performance
+* User actions
+* Navigation
+* Session information
+* User interactions
+
+### Frontend health
+
+* JavaScript errors
+* Failed requests
+* Application errors
+* Performance degradation
+
+### Performance
+
+* Load time
+* Core Web Vitals
+* Response/request performance
+* Frontend-to-backend performance
+
+### User impact
+
+For example:
+
+```text
+Application: Tax Portal
+
+Users             12,500
+Sessions           9,800
+Error rate           3.2%
+Slow sessions       1,100
+JS errors             450
+```
+
+Then you can drill down:
+
+```text
+User
+ ↓
+Session
+ ↓
+User Action
+ ↓
+Frontend Request
+ ↓
+Backend Service
+ ↓
+Distributed Trace
+```
+
+That's particularly useful for your L2 support work because you can go from **user impact → technical root-cause investigation**.
+
+---
+
+# 4. Agentless RUM vs Synthetic
+
+This distinction is important.
+
+| Agentless RUM                | Synthetic                   |
+| ---------------------------- | --------------------------- |
+| Real users                   | Simulated users             |
+| Passive observation          | Proactive testing           |
+| User actually visits         | Dynatrace initiates test    |
+| Captures real experience     | Validates expected behavior |
+| Requires user traffic        | Works even with zero users  |
+| "What did users experience?" | "Does it work?"             |
+
+Example:
+
+```text
+RUM
+Customer → Login → Error
+             ↓
+       Dynatrace records it
+
+
+Synthetic
+Dynatrace → Login test → Error
+                    ↓
+             Alert/support
+```
+
+---
+
+# 5. DQL — what you're learning
+
+Your list:
+
+> `fetch, filter, filterOut, fields, fieldName, limit, sort, count, countDistinct, collectDistinct, countIf, endsWith, timeseries, fieldsAdd`
+
+These are **DQL building blocks**.
+
+Think of DQL as:
+
+> **SQL-like querying for Dynatrace observability data.**
+
+Dynatrace Grail stores observability data, and DQL is used to explore and analyze it. Notebooks and Dashboards can directly use DQL queries. ([Dynatrace Documentation][2])
+
+---
+
+# 6. Notebook → New Notebook
+
+A typical learning workflow:
+
+```text
+Dynatrace
+   ↓
+Notebooks
+   ↓
+New Notebook
+   ↓
+Add section
+   ↓
+DQL
+   ↓
+Write query
+   ↓
+Run
+   ↓
+Visualize
+   ↓
+Save / Share / Dashboard
+```
+
+A Notebook is excellent for **investigation and analysis**.
+
+For example:
+
+> "Show me all errors from production in the last 2 hours."
+
+---
+
+# 7. Your DQL commands
+
+Let's make your list easy to remember.
+
+### `fetch`
+
+**Get data.**
+
+```dql
+fetch logs
+```
+
+Meaning:
+
+> Give me log records.
+
+---
+
+### `filter`
+
+**Keep matching records.**
+
+```dql
+fetch logs
+| filter loglevel == "ERROR"
+```
+
+Meaning:
+
+> Only show ERROR logs.
+
+---
+
+### `filterOut`
+
+Conceptually:
+
+> Remove records matching a condition.
+
+Useful when you want to exclude noise.
+
+---
+
+### `fields`
+
+**Choose which columns you want to see.**
+
+```dql
+fetch logs
+| fields timestamp, loglevel, content
+```
+
+Instead of displaying every available field.
+
+---
+
+### Field name
+
+A **field** is basically a piece of information in a record.
+
+Example:
+
+```text
+timestamp
+loglevel
+content
+host.name
+service.name
+```
+
+Think:
+
+```text
+Record
+ ├── timestamp
+ ├── loglevel
+ ├── service.name
+ └── content
+```
+
+---
+
+### `limit`
+
+Restrict number of records.
+
+```dql
+fetch logs
+| limit 20
+```
+
+> Give me only 20 records.
+
+---
+
+### `sort`
+
+Sort your result.
+
+```dql
+fetch logs
+| sort timestamp desc
+```
+
+Newest first.
+
+---
+
+# 8. `count()`
+
+Counts records.
+
+```dql
+fetch logs
+| summarize count()
+```
+
+Example result:
+
+```text
+count = 15,420
+```
+
+Meaning:
+
+> 15,420 matching log records.
+
+---
+
+# 9. `countDistinct()`
+
+Counts **unique values**.
+
+Imagine:
+
+```text
+user
+----
+Shuv
+Rahul
+Shuv
+Amit
+Rahul
+```
+
+Normal count:
+
+```text
+5
+```
+
+Distinct users:
+
+```text
+3
+```
+
+So:
+
+> `countDistinct()` = How many unique values?
+
+---
+
+# 10. `collectDistinct()`
+
+Instead of counting unique values, collect the unique values.
+
+Example concept:
+
+```text
+service.name
+
+TaxAPI
+TaxAPI
+AuthService
+PaymentService
+AuthService
+```
+
+`collectDistinct()` gives you something conceptually like:
+
+```text
+TaxAPI
+AuthService
+PaymentService
+```
+
+Useful when you want to **see the unique values**, not just count them.
+
+---
+
+# 11. `countIf()`
+
+Counts only records satisfying a condition.
+
+For example:
+
+```text
+Total requests = 10,000
+Errors = 250
+```
+
+You can use a conditional count to calculate the number of errors.
+
+Conceptually:
+
+```dql
+countIf(status == "ERROR")
+```
+
+Think:
+
+> `count()` = count everything matching the query
+> `countIf()` = count only records satisfying this condition
+
+---
+
+# 12. `endsWith()`
+
+Checks whether a string ends with a particular value.
+
+Example:
+
+```text
+server-prod-01
+server-prod-02
+server-dev-01
+```
+
+You might filter names ending in:
+
+```text
+"-01"
+```
+
+Conceptually:
+
+```dql
+filter endsWith(host.name, "-01")
+```
+
+---
+
+# 13. `fieldsAdd`
+
+This is very useful.
+
+It allows you to **create/add a calculated field**.
+
+Conceptually:
+
+```dql
+| fieldsAdd environment = "PROD"
+```
+
+Or derive a value from another field.
+
+For example:
+
+```text
+Original:
+host.name = web-prod-01
+
+New:
+environment = PROD
+```
+
+You can then use the new field for analysis.
+
+---
+
+# 14. `timeseries`
+
+This is for **time-based analysis**.
+
+Instead of:
+
+```text
+Error count = 500
+```
+
+you want:
+
+```text
+10:00 → 20 errors
+10:05 → 35 errors
+10:10 → 80 errors
+10:15 → 150 errors
+10:20 → 215 errors
+```
+
+Then you can visualize the trend.
+
+Dynatrace's Synthetic documentation itself uses `timeseries` to analyze monitor availability over time. ([Dynatrace Documentation][3])
+
+---
+
+# 15. DQL → Visualization → Dashboard
+
+Your workflow is correct:
+
+```text
+DQL
+ ↓
+Run Query
+ ↓
+Result
+ ↓
+Visual
+ ↓
+Choose chart
+ ↓
+Configure visualization
+ ↓
+Save
+ ↓
+Add / Pin to Dashboard
+```
+
+For example:
+
+### Query
+
+```text
+Error count over time
+```
+
+### Visualization
+
+```text
+Line chart
+```
+
+### Dashboard
+
+```text
+┌──────────────────────────────┐
+│ Production Application       │
+├──────────────────────────────┤
+│ Users              12,500    │
+│ Error Rate             2.1%  │
+│                              │
+│ Error Trend                 │
+│       ╱───────              │
+│  ────╯                      │
+│                              │
+│ Top Error Services           │
+│ Auth        125              │
+│ Tax API      89              │
+└──────────────────────────────┘
+```
+
+Current Dynatrace Dashboards allow a DQL tile to be added and then configured through **Data** and **Visual** tabs; dashboard-level and tile-level segments can also be applied. ([Dynatrace Documentation][4])
+
+---
+
+# 16. API-Based Monitor Creation
+
+Now we move into automation.
+
+You can create Synthetic monitors through the Dynatrace UI:
+
+```text
+Synthetic
+ ↓
+New monitor
+ ↓
+HTTP
+ ↓
+Configure
+ ↓
+Save
+```
+
+But imagine you have:
+
+```text
+100 APIs
+```
+
+and need:
+
+```text
+100 Synthetic monitors
+```
+
+Manually creating them isn't ideal.
+
+Instead:
+
+```text
+Automation / Script
+        ↓
+Dynatrace API
+        ↓
+Create monitor
+        ↓
+Monitor created
+```
+
+Dynatrace provides a Synthetic Monitor API for creating monitors, including HTTP and browser monitors. The API requires appropriate authentication, such as the `ExternalSyntheticIntegration` scope for the documented POST operation. ([Dynatrace Documentation][5])
+
+---
+
+# 17. Why API-based monitor creation?
+
+### 1. Automation
+
+Create monitors automatically.
+
+### 2. Scale
+
+Instead of:
+
+```text
+100 APIs → 100 manual configurations
+```
+
+you can generate configurations programmatically.
+
+### 3. DevOps integration
+
+For example:
+
+```text
+New application deployed
+        ↓
+CI/CD pipeline
+        ↓
+API call
+        ↓
+Create Synthetic monitor
+```
+
+### 4. Standardization
+
+Every monitor can follow the same:
+
+```text
+Name
+Frequency
+Location
+Authentication
+Tags
+Thresholds
+```
+
+### 5. Infrastructure-as-code / automation
+
+You can keep monitor configuration in source control and automate deployment.
+
+---
+
+# 18. How to implement API-based Synthetic Monitor
+
+Conceptually:
+
+```text
+1. Create Dynatrace API token
+             ↓
+2. Give required permissions
+             ↓
+3. Prepare monitor JSON
+             ↓
+4. POST to Dynatrace Synthetic API
+             ↓
+5. Dynatrace creates monitor
+             ↓
+6. Monitor executes
+             ↓
+7. Query results / metrics
+```
+
+Example architecture:
+
+```text
+Git Repository
+      ↓
+Python / PowerShell / Terraform / CI pipeline
+      ↓
+Dynatrace API
+      ↓
+HTTP Synthetic Monitor
+      ↓
+Private/Public Location
+      ↓
+API endpoint
+```
+
+Dynatrace also provides APIs to retrieve monitor configuration and execution results. ([Dynatrace Documentation][6])
+
+---
+
+# 19. Environment Segmentation
+
+This is another important concept.
+
+Imagine your company has:
+
+```text
+Production
+ ├── Tax
+ ├── HR
+ ├── Finance
+
+UAT
+ ├── Tax
+ ├── HR
+
+Development
+ ├── Tax
+ ├── HR
+```
+
+You don't want everyone looking at everything.
+
+**Segments** allow you to logically filter observability data.
+
+For example:
+
+```text
+Segment: Production
+
+Environment = PROD
+```
+
+Then:
+
+```text
+Dashboard
+    ↓
+Production segment
+    ↓
+Only production-related data
+```
+
+Dynatrace describes segments as a way to logically structure and filter observability data across applications, infrastructure, logs, metrics, events and other data types. ([Dynatrace Documentation][7])
+
+### Important current-Dynatrace distinction
+
+If you're learning older Dynatrace:
+
+```text
+Management Zones
+```
+
+was a major concept.
+
+In **Latest Dynatrace**, **Segments** are used for data segmentation/filtering, while access control is handled separately through permissions/data access concepts. Dynatrace's current documentation explicitly describes segments as replacing the data-filtering role of management zones in the newer model. ([Dynatrace Documentation][8])
+
+---
+
+# 20. Your Auto-tagging requirement
+
+This is the most interesting part of your question:
+
+> **"We want to get the server name out of the URL and put it as a tag."**
+
+There is an important architectural point here.
+
+Suppose your URL is:
+
+```text
+https://server123.company.com/api/login
+```
+
+You want:
+
+```text
+ServerName = server123
+```
+
+and ultimately:
+
+```text
+ServerName:server123
+```
+
+### Don't immediately create an automatic-tagging rule based on the URL.
+
+Why?
+
+Dynatrace's **automatic tagging** works primarily from properties of the entity being tagged — for example host name, IP, process-group properties, service properties, etc. It can also use regex conditions. ([Dynatrace Documentation][9])
+
+If the **server name exists only inside a request URL**, the cleaner approach is generally:
+
+```text
+URL
+ ↓
+Extract value
+ ↓
+Request Attribute
+ ↓
+Use attribute for analysis/naming/enrichment
+ ↓
+If needed, use appropriate tagging/enrichment mechanism
+```
+
+Dynatrace supports creating request attributes from web-request data and then processing the captured value, including extraction using delimiters or regular expressions. ([Dynatrace Documentation][10])
+
+---
+
+# 21. Example: extracting server name from URL
+
+Suppose requests look like:
+
+```text
+https://server01.company.com/api/login
+https://server02.company.com/api/login
+https://server03.company.com/api/login
+```
+
+You want:
+
+```text
+server01
+server02
+server03
+```
+
+Conceptually:
+
+```text
+WEBREQUEST_URL
+       ↓
+Extract hostname
+       ↓
+server01
+       ↓
+Request Attribute
+       ↓
+server_name = server01
+```
+
+You can then use that information for:
+
+```text
+Filtering
+Grouping
+Request naming
+Analysis
+Metrics
+Dashboards
+```
+
+Dynatrace's request-attribute processing supports extraction and regex-based post-processing. ([Dynatrace Documentation][10])
+
+---
+
+# 22. What if you specifically need a TAG?
+
+Then separate the problem into two parts.
+
+### Part A — extract
+
+```text
+URL
+ ↓
+Request Attribute
+ ↓
+server_name
+```
+
+### Part B — enrichment/tagging
+
+```text
+server_name
+ ↓
+appropriate entity/data enrichment
+ ↓
+ServerName:server01
+```
+
+Don't confuse:
+
+```text
+Request Attribute
+```
+
+with:
+
+```text
+Entity Tag
+```
+
+They are different concepts.
+
+### Request Attribute
+
+Attached to/requested from request data and useful for request-level analysis.
+
+### Entity Tag
+
+Attached to an entity such as:
+
+```text
+Host
+Service
+Process
+Process Group
+Application
+```
+
+and useful for grouping, filtering, alert routing, maintenance, etc.
+
+Dynatrace's automatic tagging documentation lists supported entity properties and allows regex-based conditions, but the property must be available on the entity being evaluated. ([Dynatrace Documentation][9])
+
+---
+
+# 23. A better architecture for your use case
+
+If your real requirement is:
+
+> "We have URLs containing application/server information and we want to segment our monitoring based on that information."
+
+I'd structure it like this:
+
+```text
+                 Incoming Request
+                       │
+                       ↓
+              https://server01...
+                       │
+                       ↓
+               Request Attribute
+                 server_name
+                       │
+              ┌────────┴─────────┐
+              ↓                  ↓
+        Request analysis       DQL
+              ↓                  ↓
+        Request naming       Dashboard
+              │
+              ↓
+       Environment filtering
+              │
+              ↓
+            Segment
+```
+
+If the requirement is instead:
+
+> "We already have server names as host properties and just want Dynatrace to automatically tag the hosts."
+
+Then **Automatic Tags** is the correct solution:
+
+```text
+Settings
+ ↓
+Tags
+ ↓
+Automatically applied tags
+ ↓
+Create tag
+ ↓
+Add rule
+ ↓
+Rule applies to → Hosts
+ ↓
+Condition → Host name / detected host name
+ ↓
+Regex/contains/etc.
+ ↓
+Preview
+ ↓
+Create rule
+ ↓
+Save
+```
+
+Dynatrace's automatic-tagging workflow supports creating rules, selecting the entity type, adding conditions, previewing matching entities, and saving the rule. ([Dynatrace Documentation][9])
+
+---
+
+# 24. Your whole Dynatrace learning map
+
+You are actually building a pretty good L2/observability skill set:
+
+```text
+                    DYNATRACE
+                        │
+        ┌───────────────┼────────────────┐
+        ↓               ↓                ↓
+       RUM          Synthetic          DQL
+        │               │                │
+   Real Users      Synthetic Users    Analyze Data
+        │               │                │
+   Frontend        HTTP/Browser/NAM    Notebook
+        │               │                │
+ Agentless/OneAgent  Public/Private   Visualization
+        │               │                │
+        └───────────────┼────────────────┘
+                        ↓
+                   DASHBOARDS
+                        │
+                        ↓
+                ENVIRONMENT SEGMENT
+                        │
+                        ↓
+                   TAGGING
+                        │
+          ┌─────────────┴──────────────┐
+          ↓                            ↓
+ Automatic Tags                 Request Attributes
+          │                            │
+ Entity classification          Request-level context
+          │                            │
+          └─────────────┬──────────────┘
+                        ↓
+                L2 INVESTIGATION
+                        │
+          ┌─────────────┼─────────────┐
+          ↓             ↓             ↓
+       Detect        Analyze        Act
+          │             │             │
+        RUM/Davis      DQL         Incident/Alert
+        Synthetic      Traces      Remediation
+```
+
+### The interview-level mental model
+
+**RUM** → *What are real users experiencing?*
+
+**Synthetic** → *Can I proactively verify that the application works?*
+
+**DQL** → *What does the observability data tell me?*
+
+**Notebook** → *Where do I investigate and document analysis?*
+
+**Dashboard** → *How do I continuously visualize important information?*
+
+**API monitor creation** → *How do I automate monitoring at scale?*
+
+**Segments** → *How do I logically filter my environment/data?*
+
+**Auto-tagging** → *How do I automatically classify entities?*
+
+**Request attributes** → *How do I extract additional context from requests?*
+
+And for your specific **URL → server name** requirement, remember:
+
+> **URL extraction → Request Attribute is usually the first step; Automatic Tagging is a separate entity-classification mechanism.** Don't treat them as the same feature. ([Dynatrace Documentation][9])
+
+[1]: https://docs.dynatrace.com/docs/observe/digital-experience/rum/web-frontends/initial-setup/set-up-agentless-monitoring?utm_source=chatgpt.com "Set up agentless RUM — Dynatrace Docs"
+[2]: https://docs.dynatrace.com/docs/manage/segments/concepts/segments-concepts-queries?utm_source=chatgpt.com "Segments in DQL queries — Dynatrace Docs"
+[3]: https://docs.dynatrace.com/docs/observe/digital-experience/synthetic/synthetic-metrics/http-monitor-metrics?utm_source=chatgpt.com "HTTP monitor metrics in Synthetic Monitoring — Dynatrace Docs"
+[4]: https://docs.dynatrace.com/docs/analyze-explore-automate/dashboards-and-notebooks/dashboards-new/components/dashboard-component-data?utm_source=chatgpt.com "Add data to a dashboard — Dynatrace Docs"
+[5]: https://docs.dynatrace.com/docs/dynatrace-api/environment-api/synthetic/synthetic-monitors/post-a-monitor?utm_source=chatgpt.com "Synthetic monitors API - POST a monitor — Dynatrace Docs"
+[6]: https://docs.dynatrace.com/docs/dynatrace-api/environment-api/synthetic/synthetic-monitors/get-a-monitor?utm_source=chatgpt.com "Synthetic monitors API - GET a monitor — Dynatrace Docs"
+[7]: https://docs.dynatrace.com/docs/manage/segments?utm_source=chatgpt.com "Segments — Dynatrace Docs"
+[8]: https://docs.dynatrace.com/docs/manage/segments/upgrade-guide-segments?utm_source=chatgpt.com "Upgrade from management zones to segments — Dynatrace Docs"
+[9]: https://docs.dynatrace.com/docs/manage/tags-and-metadata/setup/how-to-define-tags?utm_source=chatgpt.com "Define and apply tags — Dynatrace Docs"
+[10]: https://docs.dynatrace.com/docs/observe/applications-and-microservices/services/request-attributes/capture-request-attributes-based-on-web-request-data?utm_source=chatgpt.com "Capture request attributes based on web request data — Dynatrace Docs"
+
